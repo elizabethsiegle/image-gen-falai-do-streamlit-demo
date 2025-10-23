@@ -21,20 +21,27 @@ model_options = {
 selected_model = st.selectbox("Choose AI Image-Gen Model:", list(model_options.keys()))
 model_id = model_options[selected_model]
 
+# Audio duration selection
+audio_duration = st.selectbox(
+    "Choose audio clip duration:", 
+    [10, 20, 30, 40],
+    help="Longer audio takes more time to generate"
+)
+
 prompt = st.text_area("Enter your prompt:", 
     "A whimsical illustration of Pikachu playing tennis in front of the Golden Gate Bridge in a tennis skirt with a visor.",
     help="This prompt will be used to generate an image, text-to-speech audio, and a musical interpretation!")
 
 st.info("**What you'll get:** Image + Text-to-Speech + Musical Audio (all from your prompt!)")
-st.markdown("*Note: Audio generation is shorter (10 seconds) to showcase the feature, longer audio takes longer to generate*")
+st.markdown(f"*Audio clips will be {audio_duration} seconds long. Longer clips take longer to make*")
 
 
-def generate_audio_content(prompt_text, model_id, content_type):
+def generate_audio_content(prompt_text, model_id, content_type, audio_duration=10):
     """Generate audio content (TTS or text-to-audio) for the given prompt"""
     if model_id == "fal-ai/elevenlabs/tts/multilingual-v2":
         input_data = {"text": prompt_text}
     else:  # stable-audio-25
-        input_data = {"prompt": prompt_text, "seconds_total": 10}  # Reduced from 30 to 10 seconds
+        input_data = {"prompt": prompt_text, "seconds_total": audio_duration}
     
     response = requests.post(
         "https://inference.do-ai.run/v1/async-invoke",
@@ -71,10 +78,6 @@ def generate_audio_content(prompt_text, model_id, content_type):
             
         result = poll.json()
         status = result.get("status", "").lower()
-        
-        # Show progress for longer audio generation
-        if "audio" in model_id.lower() and attempt % 10 == 0:
-            st.info(f"🎵 Still generating audio... ({attempt * 3}s elapsed)")
         
         if status == "completed":
             output = result.get("output", {})
@@ -180,7 +183,8 @@ if st.button("Generate Image + Audio 🪄"):
                 tts_url = generate_audio_content(
                     tts_text, 
                     "fal-ai/elevenlabs/tts/multilingual-v2", 
-                    "TTS"
+                    "TTS",
+                    audio_duration
                 )
             
             if tts_url:
@@ -196,7 +200,8 @@ if st.button("Generate Image + Audio 🪄"):
                 audio_url = generate_audio_content(
                     audio_prompt, 
                     "fal-ai/stable-audio-25/text-to-audio", 
-                    "Text-to-Audio"
+                    "Text-to-Audio",
+                    audio_duration
                 )
             
             if audio_url:
