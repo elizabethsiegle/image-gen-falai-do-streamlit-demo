@@ -4,7 +4,7 @@ import requests
 import streamlit as st
 
 st.set_page_config(page_title="🎨 DO AI Image Generator", page_icon="🎨", layout="centered")
-st.title("🎨 DigitalOcean AI Image Generator")
+st.title("🎨 DigitalOcean Fal AI Image Generator")
 
 MODEL_ACCESS_KEY = os.getenv("MODEL_ACCESS_KEY")
 if not MODEL_ACCESS_KEY:
