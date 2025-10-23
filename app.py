@@ -176,7 +176,7 @@ if st.button("Generate Image + Audio 🪄"):
         col1, col2 = st.columns(2)
         
         with col1:
-            st.write("**🗣️ Text-to-Speech (TTS)**")
+            st.write("**🗣️ Text-to-Speech (TTS) w/ fal-ai/elevenlabs/tts/multilingual-v2**")
             with st.spinner("Generating TTS..."):
                 # Use a shorter, simpler text for TTS
                 tts_text = f"Here is your image: {prompt[:100]}..." if len(prompt) > 100 else prompt
@@ -193,7 +193,7 @@ if st.button("Generate Image + Audio 🪄"):
                 st.error("❌ TTS generation failed")
         
         with col2:
-            st.write("**🎼 Text-to-Audio**")
+            st.write("**🎼 Text-to-Audio w/ fal-ai/stable-audio-25/text-to-audio**")
             with st.spinner("Generating audio..."):
                 # Use a more musical prompt for audio generation
                 audio_prompt = f"Epic cinematic music inspired by: {prompt[:50]}"
