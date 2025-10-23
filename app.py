@@ -3,8 +3,9 @@ import time
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="🎨 DO AI Image Generator", page_icon="🎨", layout="centered")
-st.title("🎨 DigitalOcean Fal AI Image Generator")
+st.set_page_config(page_title="DO AI Multi-Modal AI Generator", page_icon="🌊", layout="centered")
+st.title("DigitalOcean🌊 Multi-Modal AI Generator")
+st.markdown("*Generate images, text-to-speech, and audio from a single prompt!*")
 
 MODEL_ACCESS_KEY = os.getenv("MODEL_ACCESS_KEY")
 if not MODEL_ACCESS_KEY:
@@ -13,17 +14,111 @@ if not MODEL_ACCESS_KEY:
 
 # Model selection
 model_options = {
-    "Flux Schnell (Fast)": "fal-ai/flux/schnell",
-    "Fast SDXL (High Quality)": "fal-ai/fast-sdxl"
+    "fal-ai/flux/schnell (Fast)": "fal-ai/flux/schnell",
+    "fal-ai/fast-sdxl (High Quality)": "fal-ai/fast-sdxl"
 }
 
-selected_model = st.selectbox("Choose AI Model:", list(model_options.keys()))
+selected_model = st.selectbox("Choose AI Image-Gen Model:", list(model_options.keys()))
 model_id = model_options[selected_model]
 
-prompt = st.text_area("Enter your image prompt:", 
-    "A whimsical illustration of Pikachu playing tennis in front of the Golden Gate Bridge in a tennis skirt with a visor.")
+prompt = st.text_area("Enter your prompt:", 
+    "A whimsical illustration of Pikachu playing tennis in front of the Golden Gate Bridge in a tennis skirt with a visor.",
+    help="This prompt will be used to generate an image, text-to-speech audio, and a musical interpretation!")
 
-if st.button("Generate Image"):
+st.info("**What you'll get:** Image + Text-to-Speech + Musical Audio (all from your prompt!)")
+st.markdown("*Note: Audio generation is shorter (10 seconds) to showcase the feature, longer audio takes longer to generate*")
+
+
+def generate_audio_content(prompt_text, model_id, content_type):
+    """Generate audio content (TTS or text-to-audio) for the given prompt"""
+    if model_id == "fal-ai/elevenlabs/tts/multilingual-v2":
+        input_data = {"text": prompt_text}
+    else:  # stable-audio-25
+        input_data = {"prompt": prompt_text, "seconds_total": 10}  # Reduced from 30 to 10 seconds
+    
+    response = requests.post(
+        "https://inference.do-ai.run/v1/async-invoke",
+        headers={"Authorization": f"Bearer {MODEL_ACCESS_KEY}", "Content-Type": "application/json"},
+        json={
+            "model_id": model_id,
+            "input": input_data,
+            "tags": [{"key": "type", "value": "test"}]
+        }
+    )
+    
+    if response.status_code != 200:
+        st.error(f"❌ {content_type} request failed ({response.status_code}): {response.text}")
+        st.json({"request_payload": {"model_id": model_id, "input": input_data}})
+        return None
+    
+    request_id = response.json().get("id") or response.json().get("request_id")
+    if not request_id:
+        st.error(f"❌ No request ID returned for {content_type}")
+        return None
+    
+    result_url = f"https://inference.do-ai.run/v1/async-invoke/{request_id}"
+    headers = {"Authorization": f"Bearer {MODEL_ACCESS_KEY}"}
+    
+    # Poll for completion with longer timeout for audio generation
+    max_attempts = 60 if "audio" in model_id.lower() else 30  # 3 minutes for audio, 90s for TTS
+    
+    for attempt in range(max_attempts):
+        time.sleep(3)
+        poll = requests.get(result_url, headers=headers)
+        
+        if poll.status_code != 200:
+            continue
+            
+        result = poll.json()
+        status = result.get("status", "").lower()
+        
+        # Show progress for longer audio generation
+        if "audio" in model_id.lower() and attempt % 10 == 0:
+            st.info(f"🎵 Still generating audio... ({attempt * 3}s elapsed)")
+        
+        if status == "completed":
+            output = result.get("output", {})
+            
+            # Try different possible audio URL keys and handle nested structures
+            audio_url = None
+            
+            # Direct URL keys
+            if output.get("audio_url"):
+                audio_url = output.get("audio_url")
+            elif output.get("url"):
+                audio_url = output.get("url")
+            elif output.get("file_url"):
+                audio_url = output.get("file_url")
+            # Handle nested audio object (common with ElevenLabs)
+            elif output.get("audio"):
+                audio_obj = output.get("audio")
+                if isinstance(audio_obj, dict):
+                    audio_url = (audio_obj.get("url") or 
+                               audio_obj.get("audio_url") or 
+                               audio_obj.get("file_url") or
+                               audio_obj.get("download_url"))
+                elif isinstance(audio_obj, str):
+                    audio_url = audio_obj
+            
+            if audio_url:
+                return audio_url
+            else:
+                st.error(f"❌ No audio URL found in {content_type} output")
+                st.json(output)
+                return None
+                
+        elif status in ["failed", "error"]:
+            st.error(f"❌ {content_type} generation failed with status: {status}")
+            st.json(result)
+            return None
+    
+    # Show appropriate timeout message based on model
+    timeout_seconds = max_attempts * 3
+    st.warning(f"⏱️ {content_type} generation timed out after {timeout_seconds} seconds")
+    return None
+
+if st.button("Generate Image + Audio 🪄"):
+    # First, generate the image
     with st.spinner("Generating image..."):
         # Submit request
         response = requests.post(
@@ -42,6 +137,7 @@ if st.button("Generate Image"):
         result_url = f"https://inference.do-ai.run/v1/async-invoke/{request_id}"
         headers = {"Authorization": f"Bearer {MODEL_ACCESS_KEY}"}
         
+        image_url = None
         for _ in range(30):  # 30 attempts, 3s each = 90s max
             time.sleep(3)
             poll = requests.get(result_url, headers=headers)
@@ -56,16 +152,57 @@ if st.button("Generate Image"):
                 output = result.get("output", {})
                 print(output)
                 image_url = output.get("images", [{}])[0].get("url")
-                if image_url:
-                    st.success("✅ Image ready!")
-                    st.image(image_url, caption=prompt, width='stretch')
-                    break
+                break
             elif status in ["failed", "error"]:
                 st.error("❌ Image generation failed")
                 st.json(result)
                 break
         else:
             st.warning("Timed out waiting for image.")
+    
+    # Display the image if successful
+    if image_url:
+        st.success("✅ Image ready!")
+        st.image(image_url, caption=prompt, width='stretch')
+        
+        # Generate audio content after image is ready
+        st.divider()
+        st.subheader("🎵 Generated Audio Content")
+        
+        # Create columns for TTS and Text-to-Audio
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**🗣️ Text-to-Speech (TTS)**")
+            with st.spinner("Generating TTS..."):
+                # Use a shorter, simpler text for TTS
+                tts_text = f"Here is your image: {prompt[:100]}..." if len(prompt) > 100 else prompt
+                tts_url = generate_audio_content(
+                    tts_text, 
+                    "fal-ai/elevenlabs/tts/multilingual-v2", 
+                    "TTS"
+                )
+            
+            if tts_url:
+                st.audio(tts_url, format="audio/wav")
+            else:
+                st.error("❌ TTS generation failed")
+        
+        with col2:
+            st.write("**🎼 Text-to-Audio**")
+            with st.spinner("Generating audio..."):
+                # Use a more musical prompt for audio generation
+                audio_prompt = f"Epic cinematic music inspired by: {prompt[:50]}"
+                audio_url = generate_audio_content(
+                    audio_prompt, 
+                    "fal-ai/stable-audio-25/text-to-audio", 
+                    "Text-to-Audio"
+                )
+            
+            if audio_url:
+                st.audio(audio_url, format="audio/wav")
+            else:
+                st.error("❌ Audio generation failed")
 
 # Sticky footer
 st.markdown("""
