@@ -5,7 +5,7 @@ import streamlit as st
 
 st.set_page_config(page_title="DO AI Multi-Modal AI Generator", page_icon="🌊", layout="centered")
 st.title("DigitalOcean🌊 Multi-Modal AI Generator")
-st.markdown("*Generate images, text-to-speech, and audio from a single prompt!*")
+st.markdown("*Generate images, text-to-speech, && audio from a single prompt! More infoℹ️ on [DigitalOcean x Fal AI blog](https://www.digitalocean.com/blog/fal-ai-image-models-gradient-ai-platform)*")
 
 MODEL_ACCESS_KEY = os.getenv("MODEL_ACCESS_KEY")
 if not MODEL_ACCESS_KEY:
