@@ -170,7 +170,7 @@ if st.button("Generate Image + Audio 🪄"):
         
         # Generate audio content after image is ready
         st.divider()
-        st.subheader("🎵 Generated Audio Content")
+        st.subheader("Generated Audio")
         
         # Create columns for TTS and Text-to-Audio
         col1, col2 = st.columns(2)
