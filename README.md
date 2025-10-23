@@ -1,6 +1,6 @@
 # Generate Images via the new Flux Schnell (fast) or Fast SDXL (high-quality) models via Fal AI on DigitalOcean!
 
-A simple Streamlit app that generates images using DigitalOcean's AI models via Fal AI.
+A simple Streamlit app that generates images, text-to-speech, and music text-to-audio (all from 1 prompt) using DigitalOcean's AI models via Fal AI.
 
 
 ## Setup
